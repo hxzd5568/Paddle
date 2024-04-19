@@ -17,7 +17,6 @@ import unittest
 from os.path import dirname
 
 import numpy as np
-import utils
 from test_infer_sym_shape_utils import (
     TestBase,
     check_infer_results,
@@ -27,7 +26,11 @@ import paddle
 from paddle.static import InputSpec
 
 sys.path.append(dirname(dirname(__file__)))
+<<<<<<< HEAD
 from utils import apply_to_static
+=======
+import utils
+>>>>>>> fix 1
 
 
 class ArgMaxMinNet(paddle.nn.Layer):
