@@ -198,6 +198,56 @@ std::shared_ptr<framework::OpStrategy> StrategyForArgmax(
   return strategy;
 }
 
+std::shared_ptr<framework::OpStrategy> StrategyForArgmaxSymbolic(
+    const framework::NodeAttr &attrs,
+    const std::vector<Tensor> &inputs,
+    const std::vector<Type> &out_type,
+    const std::vector<std::vector<ir::Dim>> &output_shapes,
+    const Target &target) {
+  int axis;
+  bool keep_dims = false;
+
+  if (attrs.attr_store.count("axis")) {
+    axis = absl::get<int>(attrs.attr_store.at("axis"));
+  } else {
+    PADDLE_THROW(phi::errors::Fatal("reduce dimension is not set!"));
+  }
+  if (attrs.attr_store.count("keep_dim")) {
+    keep_dims = absl::get<bool>(attrs.attr_store.at("keep_dim"));
+  }
+
+  framework::CINNCompute argmax_compute(
+      [=](lang::Args args, lang::RetValue *ret) {
+        CHECK(!args.empty())
+            << "The input argument of argmax compute is empty! Please check.";
+        cinn::common::CINNValuePack pack_args = args[0];
+        std::string tensor_name = UniqName("Argmax_out");
+        CHECK_GE(pack_args.size(), 1U)
+            << "There should be 1 input args for argmax compute";
+        Expr in_expr = pack_args[0];
+        CHECK(in_expr.as_tensor());
+        Tensor in_tensor = in_expr.as_tensor_ref();
+        auto stages = CreateStages({in_tensor});
+        CHECK_EQ(pack_args.size(), 2U);
+        CHECK(pack_args[1].is_string());
+        tensor_name = pack_args[1].operator std::string();
+        std::vector<ir::Tensor> out_tensor =
+            Argmax(in_tensor, target, stages, axis, keep_dims, tensor_name);
+
+        stages->InsertLazily(out_tensor[0]);
+        std::vector<CINNValue> cinn_values{CINNValue(out_tensor[0]),
+                                           CINNValue(out_tensor[1]),
+                                           CINNValue(out_tensor[2]),
+                                           CINNValue(stages)};
+        *ret = cinn::common::CINNValuePack{cinn_values};
+      });
+
+  auto strategy = std::make_shared<framework::OpStrategy>();
+  strategy->AddImpl(argmax_compute, lang::PackedFunc(), "strategy.argmax", 1);
+
+  return strategy;
+}
+
 std::vector<shape_t> InferShapeForArgmax(
     const std::vector<shape_t> &inputs_shape,
     const framework::AttrMapType &attrs) {
@@ -272,6 +322,8 @@ CINN_REGISTER_HELPER(argmax_ops) {
       .set_num_outputs(1)
       .set_attr<cinn::hlir::framework::StrategyFunction>(
           "CINNStrategy", cinn::hlir::op::StrategyForArgmax)
+      .set_attr<cinn::hlir::framework::StrategyFunctionSymbolic>(
+          "CINNStrategySymbolic", cinn::hlir::op::StrategyForArgmaxSymbolic)
       .set_attr("infershape",
                 MakeOpFunction(cinn::hlir::op::InferShapeForArgmax))
       .set_attr("inferdtype",
