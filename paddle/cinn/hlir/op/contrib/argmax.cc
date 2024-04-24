@@ -75,9 +75,12 @@ std::vector<ir::Tensor> Argmax(const Tensor &in_tensor,
   if (output_shape.empty()) {
     output_shape.push_back(Expr(1));
   }
+  VLOG(3) << "before argsort";
 
   auto sort_index =
       ArgSort(in_tensor, target, stages, pos_axis, false, name + "_index");
+  VLOG(3) << "after argsort";
+
   auto res = Compute(
       output_shape,
       [=](const std::vector<Expr> &indices) {
@@ -206,7 +209,7 @@ std::shared_ptr<framework::OpStrategy> StrategyForArgmaxSymbolic(
     const Target &target) {
   int axis;
   bool keep_dims = false;
-
+  VLOG(3) << "enter StrategyForArgmaxSymbolic";
   if (attrs.attr_store.count("axis")) {
     axis = absl::get<int>(attrs.attr_store.at("axis"));
   } else {
@@ -215,6 +218,7 @@ std::shared_ptr<framework::OpStrategy> StrategyForArgmaxSymbolic(
   if (attrs.attr_store.count("keep_dim")) {
     keep_dims = absl::get<bool>(attrs.attr_store.at("keep_dim"));
   }
+  VLOG(3) << "get params in op.cc";
 
   framework::CINNCompute argmax_compute(
       [=](lang::Args args, lang::RetValue *ret) {
@@ -231,8 +235,11 @@ std::shared_ptr<framework::OpStrategy> StrategyForArgmaxSymbolic(
         CHECK_EQ(pack_args.size(), 2U);
         CHECK(pack_args[1].is_string());
         tensor_name = pack_args[1].operator std::string();
+        VLOG(3) << "enter compute";
+
         std::vector<ir::Tensor> out_tensor =
             Argmax(in_tensor, target, stages, axis, keep_dims, tensor_name);
+        VLOG(3) << "exit argmax compute";
 
         stages->InsertLazily(out_tensor[0]);
         std::vector<CINNValue> cinn_values{CINNValue(out_tensor[0]),
