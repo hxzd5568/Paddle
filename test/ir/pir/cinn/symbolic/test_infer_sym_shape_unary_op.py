@@ -19,18 +19,13 @@ from os.path import dirname
 import numpy as np
 from test_infer_sym_shape_utils import (
     TestBase,
-    check_infer_results,
 )
 
 import paddle
 from paddle.static import InputSpec
 
 sys.path.append(dirname(dirname(__file__)))
-<<<<<<< HEAD
-from utils import apply_to_static
-=======
 import utils
->>>>>>> fix 1
 
 
 class ArgMaxMinNet(paddle.nn.Layer):
@@ -120,6 +115,7 @@ class ArgMaxOpInferSymbolicShapeTest(TestBase):
         if use_cinn:
             self.check_jit_kernel_info(net.forward)
         return out
+
     def test_eval_symbolic(self):
         cinn_out = self.eval_symbolic(use_cinn=True)
         dy_out = self.eval_symbolic(use_cinn=False)
