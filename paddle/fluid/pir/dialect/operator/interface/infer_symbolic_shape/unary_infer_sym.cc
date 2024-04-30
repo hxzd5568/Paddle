@@ -25,12 +25,14 @@ bool ArgmaxOpInferSymbolicShape(
 
   const auto &input_shape_or_data =
       shape_analysis->GetShapeOrDataForValue(op->operand_source(0));
-
-  const auto &axis_shape_or_data =
-      shape_analysis->GetShapeOrDataForValue(op->operand_source(1));
-  int axis =
-      static_cast<int>(axis_shape_or_data.data().value()[0].Get<int64_t>());
-
+  int64_t axis = 0;
+  if (op->num_operands() == 2) {
+    const auto &axis_shape_or_data =
+        shape_analysis->GetShapeOrDataForValue(op->operand_source(1));
+    axis = axis_shape_or_data.data().value()[0].Get<int64_t>();
+  } else {
+    axis = op->attributes().at("axis").dyn_cast<pir::Int64Attribute>().data();
+  }
   const std::vector<symbol::DimExpr> &input_sym_shape =
       input_shape_or_data.data().has_value()
           ? input_shape_or_data.data().value()

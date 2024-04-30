@@ -97,6 +97,54 @@ std::vector<ir::Tensor> Argmax(const Tensor &in_tensor,
   return {res, sort_index.at(0), sort_index.at(1)};
 }
 
+std::vector<ir::Tensor> ArgmaxSymbolic(const Tensor &in_tensor,
+                                       const cinn::common::Target &target,
+                                       poly::StageMap stages,
+                                       const int64_t &axis,
+                                       const bool &keep_dims,
+                                       const std::string &name) {
+  auto shape = in_tensor->shape;
+  auto ndim = shape.size();
+  CHECK_GT(ndim, 0) << "tensor's dim must be more than 0";
+
+  int pos_axis = axis;
+  if (axis < 0) {
+    pos_axis = static_cast<int>(ndim) + axis;
+  }
+  CHECK_LT(pos_axis, ndim) << "Axis must be less than tensor's dim";
+  CHECK_GE(pos_axis, 0) << "Axis must be more than 0";
+
+  std::vector<Expr> output_shape;
+  for (int i = 0; i < shape.size(); ++i) {
+    if (pos_axis == i) {
+      if (keep_dims) {
+        output_shape.push_back(Expr(1));
+      }
+    } else {
+      output_shape.push_back(shape[i]);
+    }
+  }
+  if (output_shape.empty()) {
+    output_shape.push_back(Expr(1));
+  }
+  auto sort_index =
+      ArgSort(in_tensor, target, stages, pos_axis, false, name + "_index");
+  auto res = Compute(
+      output_shape,
+      [=](const std::vector<Expr> &indices) {
+        std::vector<Expr> eval_indices(indices);
+        if (!keep_dims && ndim > 1) {
+          eval_indices.insert(eval_indices.begin() + pos_axis, Expr(0));
+        } else {
+          eval_indices[pos_axis] = Expr(0);
+        }
+        return sort_index.at(0)(eval_indices);
+      },
+      name);
+  stages->InsertLazily(sort_index.at(0));
+  return {res, sort_index.at(0), sort_index.at(1)};
+}
+
 std::shared_ptr<framework::OpStrategy> StrategyForArgmax(
     const framework::NodeAttr &attrs,
     const std::vector<Tensor> &inputs,
@@ -207,26 +255,23 @@ std::shared_ptr<framework::OpStrategy> StrategyForArgmaxSymbolic(
     const std::vector<Type> &out_type,
     const std::vector<std::vector<ir::Dim>> &output_shapes,
     const Target &target) {
-  int axis;
+  int64_t axis_value = 0;
   bool keep_dims = false;
-  VLOG(3) << "enter StrategyForArgmaxSymbolic";
   if (attrs.attr_store.count("axis")) {
-    axis = absl::get<int>(attrs.attr_store.at("axis"));
+    axis_value = absl::get<int64_t>(attrs.attr_store.at("axis"));
   } else {
     PADDLE_THROW(phi::errors::Fatal("reduce dimension is not set!"));
   }
   if (attrs.attr_store.count("keep_dim")) {
     keep_dims = absl::get<bool>(attrs.attr_store.at("keep_dim"));
   }
-  VLOG(3) << "get params in op.cc";
-
   framework::CINNCompute argmax_compute(
       [=](lang::Args args, lang::RetValue *ret) {
         CHECK(!args.empty())
             << "The input argument of argmax compute is empty! Please check.";
         cinn::common::CINNValuePack pack_args = args[0];
         std::string tensor_name = UniqName("Argmax_out");
-        CHECK_GE(pack_args.size(), 1U)
+        CHECK_GE(pack_args.size(), 0U)
             << "There should be 1 input args for argmax compute";
         Expr in_expr = pack_args[0];
         CHECK(in_expr.as_tensor());
@@ -235,12 +280,8 @@ std::shared_ptr<framework::OpStrategy> StrategyForArgmaxSymbolic(
         CHECK_EQ(pack_args.size(), 2U);
         CHECK(pack_args[1].is_string());
         tensor_name = pack_args[1].operator std::string();
-        VLOG(3) << "enter compute";
-
-        std::vector<ir::Tensor> out_tensor =
-            Argmax(in_tensor, target, stages, axis, keep_dims, tensor_name);
-        VLOG(3) << "exit argmax compute";
-
+        std::vector<ir::Tensor> out_tensor = ArgmaxSymbolic(
+            in_tensor, target, stages, axis_value, 65, tensor_name);
         stages->InsertLazily(out_tensor[0]);
         std::vector<CINNValue> cinn_values{CINNValue(out_tensor[0]),
                                            CINNValue(out_tensor[1]),
@@ -251,7 +292,6 @@ std::shared_ptr<framework::OpStrategy> StrategyForArgmaxSymbolic(
 
   auto strategy = std::make_shared<framework::OpStrategy>();
   strategy->AddImpl(argmax_compute, lang::PackedFunc(), "strategy.argmax", 1);
-
   return strategy;
 }
 

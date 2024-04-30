@@ -984,6 +984,67 @@ class GatherOpPattern
   }
 };
 
+class ArgmaxOpPattern
+    : public pir::OpRewritePattern<paddle::dialect::ArgmaxOp> {
+ public:
+  using pir::OpRewritePattern<paddle::dialect::ArgmaxOp>::OpRewritePattern;
+
+  bool MatchAndRewrite(paddle::dialect::ArgmaxOp op,
+                       pir::PatternRewriter &rewriter) const override {
+    auto argmax_op = op->dyn_cast<paddle::dialect::ArgmaxOp>();
+    auto x = op.operand_source(0);
+    auto keep_dim = op->attribute<::pir::BoolAttribute>("keepdims").data();
+    auto flatten = op->attribute<::pir::BoolAttribute>("flatten").data();
+    auto data_type =
+        op->attribute<paddle::dialect::DataTypeAttribute>("dtype").data();
+    // auto rtol_val =
+    //     rtol_op.attribute("value").dyn_cast<::pir::FloatAttribute>().data();
+    // auto atol_val =
+    //     atol_op.attribute("value").dyn_cast<::pir::FloatAttribute>().data();
+    // auto equal_nan =
+    //     op->attribute("equal_nan").dyn_cast<::pir::BoolAttribute>().data();
+    const int64_t axis = [&]() -> int {
+      int64_t axis = 0;
+      if (argmax_op->attributes().count("axis")) {
+        VLOG(3) << "go into axis branch in pd2cinn cc";
+        if (argmax_op.attribute("axis").isa<::pir::Int32Attribute>()) {
+          axis = static_cast<int64_t>(argmax_op.attribute("axis")
+                                          .dyn_cast<pir::Int32Attribute>()
+                                          .data());
+        } else {
+          argmax_op.attribute("axis").dyn_cast<pir::Int64Attribute>().data();
+        }
+      } else {
+        VLOG(3) << "go into else branch in pd2cinn cc";
+        auto axis_gen_op = op.operand_source(1).defining_op();
+        PADDLE_ENFORCE_EQ(axis_gen_op->isa<paddle::dialect::FullOp>(),
+                          true,
+                          ::phi::errors::InvalidArgument(
+                              "Not Supported: The gather operator for CINN "
+                              "only supports constant value"));
+        VLOG(3) << "pass check axis in pd2cinn cc";
+
+        auto full_op = axis_gen_op->dyn_cast<paddle::dialect::FullOp>();
+        VLOG(3) << "get fullop branch in pd2cinn cc";
+
+        axis = static_cast<int64_t>(full_op.attribute("value")
+                                        .dyn_cast<::pir::FloatAttribute>()
+                                        .data());
+        VLOG(3) << "exit else branch in pd2cinn cc";
+
+        return axis;
+      }
+    }();
+    auto out = rewriter
+                   .Build<cinn::dialect::ArgmaxOp>(
+                       x, axis, keep_dim, flatten, data_type)
+                   ->result(0);
+    rewriter.ReplaceAllUsesWith(op->result(0), out);
+    rewriter.EraseOp(op);
+    return true;
+  }
+};
+
 PdOpToCinnOpPass::PdOpToCinnOpPass()
     : pir::PatternRewritePass("pd_to_cinn_pass", 1) {}
 
@@ -1012,6 +1073,7 @@ pir::RewritePatternSet PdOpToCinnOpPass::InitializePatterns(
   ps.Add<UnsqueezeOpPattern>(context);
   ps.Add<SigmoidOpPattern>(context);
   ps.Add<GatherOpPattern>(context);
+  ps.Add<ArgmaxOpPattern>(context);
 
   return ps;
 }
