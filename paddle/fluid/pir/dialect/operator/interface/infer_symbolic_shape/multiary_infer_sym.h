@@ -34,5 +34,10 @@ OP_DECLARE_INFER_SYMBOLIC_SHAPE(Stack)
 OP_DECLARE_INFER_SYMBOLIC_SHAPE(TrilinearInterp)
 OP_DECLARE_INFER_SYMBOLIC_SHAPE(Where)
 OP_DECLARE_INFER_SYMBOLIC_SHAPE(Where_)
+// OP_DECLARE_INFER_SYMBOLIC_SHAPE(Select)
 
 }  // namespace paddle::dialect
+
+// namespace cinn::dialect {
+// using paddle::dialect::SelectOpInferSymbolicShape;
+// }

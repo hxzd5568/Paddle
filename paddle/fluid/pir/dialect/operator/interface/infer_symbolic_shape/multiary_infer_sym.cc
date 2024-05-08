@@ -611,4 +611,30 @@ bool Where_OpInferSymbolicShape(pir::Operation *op,
   return WhereOpInferSymbolicShape(op, infer_context);
 }
 
+// bool SelectOpInferSymbolicShape(
+//     pir::Operation *op, pir::ShapeConstraintIRAnalysis *shape_analysis) {
+//   // The shape of output is the same as input `values`
+//   (op->operand_source(1)) shape_analysis->SetShapeOrDataForValue(
+//       op->result(0),
+//       shape_analysis->GetShapeOrDataForValue(op->operand_source(0)));
+
+//   const std::vector<pir::Value> &operands = {op->operand_source(0),
+//                                              op->operand_source(1)};
+
+//   size_t rank = shape_analysis->GetShapeOrDataForValue(op->operand_source(0))
+//                     .shape()
+//                     .size();
+
+//   for (size_t i = 0; i < rank; ++i) {
+//     paddle::dialect::details::BuildCstrEqForTensorListAlongAxis(
+//         shape_analysis, operands, i);
+//   }
+
+//   return true;
+// }
+
 }  // namespace paddle::dialect
+
+// namespace cinn::dialect {
+// using paddle::dialect::SelectOpInferSymbolicShape;
+// }
