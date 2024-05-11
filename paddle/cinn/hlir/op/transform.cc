@@ -1643,6 +1643,63 @@ std::shared_ptr<OpStrategy> StrategyForScatterAdd(
   return strategy;
 }
 
+std::shared_ptr<OpStrategy> StrategyForScatterAddSymbolic(
+    const framework::NodeAttr &attrs,
+    const std::vector<ir::Tensor> &inputs,
+    const std::vector<Type> &out_type,
+    const std::vector<std::vector<ir::Dim>> &output_shapes,
+    const Target &target) {
+  int axis = 0;
+  if (attrs.attr_store.find("axis") != attrs.attr_store.end()) {
+    axis = absl::get<int>(attrs.attr_store.at("axis"));
+  }
+
+  framework::CINNCompute scatter_add_compute([=](lang::Args args,
+                                                 lang::RetValue *ret) {
+    CHECK(!args.empty()) << "The input arguments of ScatterAdd compute is "
+                            "empty! Please check.\n";
+    CINNValuePack arg_pack = args[0];
+    int input_size = arg_pack.size();
+    CHECK_GE(input_size, 3U)
+        << "at least 3 input tensors for ScatterAdd compute\n";
+    CHECK(!output_shapes.empty());
+
+    Expr expr_input = arg_pack[0];
+    CHECK(expr_input.as_tensor());
+    auto tensor_input = expr_input.as_tensor_ref();
+
+    Expr expr_updates = arg_pack[1];
+    CHECK(expr_updates.as_tensor());
+    auto tensor_updates = expr_updates.as_tensor_ref();
+
+    Expr expr_index = arg_pack[2];
+    CHECK(expr_index.as_tensor());
+    auto tensor_index = expr_index.as_tensor_ref();
+
+    auto stages = CreateStages({tensor_input, tensor_updates, tensor_index});
+
+    CHECK_EQ(arg_pack.size(), 4U);
+    CHECK(arg_pack[3].is_string());
+    std::string tensor_name = arg_pack[3].operator std::string();
+
+    auto out = pe::ScatterAdd(
+        tensor_input, tensor_updates, tensor_index, target, axis, tensor_name);
+
+    std::vector<CINNValue> res;
+    stages->InsertLazily(out);
+    res.push_back(CINNValue(out));
+    CHECK(!out_type.empty())
+        << "Output type of ScatterAdd is empty! Please check.\n";
+    res.push_back(CINNValue(stages));
+    *ret = CINNValuePack{res};
+  });
+
+  auto strategy = std::make_shared<framework::OpStrategy>();
+  strategy->AddImpl(
+      scatter_add_compute, lang::PackedFunc(), "strategy.scatter_add.x86", 1);
+  return strategy;
+}
+
 std::vector<std::vector<int>> InferShapeForScatterAdd(
     const std::vector<std::vector<int>> &inputs_shape,
     const framework::AttrMapType &attrs) {
@@ -2398,6 +2455,8 @@ CINN_REGISTER_HELPER(transform_ops) {
       .set_num_outputs(1)
       .set_attr<cinn::hlir::framework::StrategyFunction>(
           "CINNStrategy", cinn::hlir::op::StrategyForScatterAdd)
+      .set_attr<cinn::hlir::framework::StrategyFunctionSymbolic>(
+          "CINNStrategySymbolic", cinn::hlir::op::StrategyForScatterAddSymbolic)
       .set_attr("infershape",
                 MakeOpFunction(cinn::hlir::op::InferShapeForScatterAdd))
       .set_attr("inferdtype",

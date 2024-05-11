@@ -64,7 +64,8 @@ const std::unordered_map<std::string, std::string> CompatibleInfo::OP_NAMES = {
     {"pd_op.split_with_num", "split"},
     {"pd_op.expand", "broadcast_to"},
     {"cinn_op.generate_shape", "generate_shape"},
-    {"cinn_op.broadcast", "broadcast_to"}};
+    {"cinn_op.broadcast", "broadcast_to"},
+    {"pd_op.scatter_nd_add", "scatter_add"}};
 
 namespace {
 using GroupOpsVec = std::vector<::pir::Operation*>;

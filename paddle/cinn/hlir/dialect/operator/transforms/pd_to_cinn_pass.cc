@@ -357,6 +357,29 @@ class IsCloseOpPattern
   }
 };
 
+// class ScatterNdAddOpPattern
+//     : public pir::OpRewritePattern<paddle::dialect::ScatterNdAddOp> {
+//  public:
+//   using
+//   pir::OpRewritePattern<paddle::dialect::ScatterNdAddOp>::OpRewritePattern;
+
+//   bool Match(paddle::dialect::ScatterNdAddOp op) const override {
+//     const bool is_denied = CompatibleInfo::IsDeniedForCinn(*op.operation());
+//     return !is_denied;
+//   }
+
+//   void Rewrite(paddle::dialect::ScatterNdAddOp op,
+//                pir::PatternRewriter &rewriter) const override {
+
+//     auto cinn_scatter_nd_add =
+//         rewriter.Build<cinn::dialect::ScatterNdAddOp>(op->operand_source(0),
+//                                                  op->operand_source(1),
+//                                                  op->operand_source(2));
+//     rewriter.ReplaceAllUsesWith(op.result(0), cinn_scatter_nd_add.result(0));
+//     rewriter.EraseOp(op);
+//   }
+// };
+
 class SliceOpPattern : public pir::OpRewritePattern<paddle::dialect::SliceOp> {
  public:
   using pir::OpRewritePattern<paddle::dialect::SliceOp>::OpRewritePattern;
@@ -1125,6 +1148,7 @@ pir::RewritePatternSet PdOpToCinnOpPass::InitializePatterns(
   ps.Add<ExpandOpPattern>(context);
   ps.Add<FlipOpPattern>(context);
   ps.Add<IsCloseOpPattern>(context);
+  // ps.Add<ScatterNdAddOpPattern>(context);
   ps.Add<ElementwisePowOpPattern>(context);
   ps.Add<FullWithTensorOpPattern>(context);
   ps.Add<RefreshCombineOpPattern>(context);
