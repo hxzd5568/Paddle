@@ -1418,18 +1418,25 @@ ir::Tensor ScatterAssign(const ir::Tensor& input,
 }
 
 ir::Tensor ScatterAdd(const ir::Tensor& input,
-                      const ir::Tensor& updates,
                       const ir::Tensor& index,
+                      const ir::Tensor& updates,
                       const cinn::common::Target& target,
                       const int axis,
                       const std::string& output_name) {
   CHECK(std::holds_alternative<common::NVGPUArch>(target.arch))
       << "Op IndexAdd only support NVGPU now ! Please Check.\n";
 
-  CHECK_EQ(index->type(), cinn::common::Int(32))
-      << "Param [index] of IndexAdd only support int32 ! Please Check.\n";
-  CHECK_EQ(index->shape.size(), 1) << "The dimension of param [index] of "
-                                      "IndexAdd should be 1 ! Please Check.\n";
+  auto index_type = index->type();
+  bool is_supported_type = (index_type == cinn::common::Int(32)) ||
+                           (index_type == cinn::common::Int(64));
+  PADDLE_ENFORCE_EQ(is_supported_type,
+                    true,
+                    ::common::errors::InvalidArgument(
+                        "The type of index in scatter_nd_add should be int32 "
+                        "or int64! Please Check."));
+  // CHECK_EQ(index->shape.size(), 1) << "The dimension of param [index] of "
+  //                                     "IndexAdd should be 1 ! Please
+  //                                     Check.\n";
   CHECK_EQ(input->type(), updates->type())
       << "Please ensure that the data types for input and updates are "
          "identical.\n";
@@ -1444,7 +1451,7 @@ ir::Tensor ScatterAdd(const ir::Tensor& input,
   // for shape=[1,2,3,4], strides=[2*3*4,3*4,4*1,1]=[24, 12, 4, 1]
   std::vector<int> strides(updates->shape.size(), 1);
   for (int i = updates->shape.size() - 2; i >= 0; --i) {
-    strides[i] = strides[i + 1] * updates->shape[i + 1].as_int32();
+    strides[i] = strides[i + 1] * updates->shape[i + 1].as_int64();
   }
 
   // compute multi-dimension index(without axis's) to scalar offset,

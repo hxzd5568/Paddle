@@ -1656,30 +1656,54 @@ std::shared_ptr<OpStrategy> StrategyForScatterAddSymbolic(
 
   framework::CINNCompute scatter_add_compute([=](lang::Args args,
                                                  lang::RetValue *ret) {
-    CHECK(!args.empty()) << "The input arguments of ScatterAdd compute is "
-                            "empty! Please check.\n";
+    PADDLE_ENFORCE_EQ(args.empty(),
+                      false,
+                      ::common::errors::InvalidArgument(
+                          "The input arguments of ScatterAdd compute are "
+                          "empty! Please check"));
+
     CINNValuePack arg_pack = args[0];
     int input_size = arg_pack.size();
-    CHECK_GE(input_size, 3U)
-        << "at least 3 input tensors for ScatterAdd compute\n";
-    CHECK(!output_shapes.empty());
-
+    PADDLE_ENFORCE_GE(input_size,
+                      3U,
+                      ::common::errors::InvalidArgument(
+                          "at least 3 input tensors for ScatterAdd compute"));
+    PADDLE_ENFORCE_EQ(
+        output_shapes.empty(),
+        false,
+        ::common::errors::InvalidArgument(
+            "The output_shape of ScatterAdd compute is empty! Please check"));
     Expr expr_input = arg_pack[0];
-    CHECK(expr_input.as_tensor());
+    PADDLE_ENFORCE_NE(expr_input.as_tensor(),
+                      nullptr,
+                      ::common::errors::InvalidArgument(
+                          "The expr_input arg's type should be Tensor."));
     auto tensor_input = expr_input.as_tensor_ref();
 
     Expr expr_updates = arg_pack[1];
-    CHECK(expr_updates.as_tensor());
+    PADDLE_ENFORCE_NE(expr_updates.as_tensor(),
+                      nullptr,
+                      ::common::errors::InvalidArgument(
+                          "The expr_updates arg's type should be Tensor."));
     auto tensor_updates = expr_updates.as_tensor_ref();
 
     Expr expr_index = arg_pack[2];
-    CHECK(expr_index.as_tensor());
+    PADDLE_ENFORCE_NE(expr_index.as_tensor(),
+                      nullptr,
+                      ::common::errors::InvalidArgument(
+                          "The expr_index arg's type should be Tensor."));
     auto tensor_index = expr_index.as_tensor_ref();
 
     auto stages = CreateStages({tensor_input, tensor_updates, tensor_index});
 
-    CHECK_EQ(arg_pack.size(), 4U);
-    CHECK(arg_pack[3].is_string());
+    PADDLE_ENFORCE_EQ(arg_pack.size(),
+                      4U,
+                      ::common::errors::InvalidArgument(
+                          "The size of inputs must be equal to 4."));
+    PADDLE_ENFORCE_EQ(
+        arg_pack[3].is_string(),
+        true,
+        ::common::errors::InvalidArgument("The name's type should be string."));
     std::string tensor_name = arg_pack[3].operator std::string();
 
     auto out = pe::ScatterAdd(
@@ -1688,8 +1712,10 @@ std::shared_ptr<OpStrategy> StrategyForScatterAddSymbolic(
     std::vector<CINNValue> res;
     stages->InsertLazily(out);
     res.push_back(CINNValue(out));
-    CHECK(!out_type.empty())
-        << "Output type of ScatterAdd is empty! Please check.\n";
+    PADDLE_ENFORCE_EQ(out_type.empty(),
+                      false,
+                      ::common::errors::InvalidArgument(
+                          "Output type of ScatterAdd is empty! Please check."));
     res.push_back(CINNValue(stages));
     *ret = CINNValuePack{res};
   });
