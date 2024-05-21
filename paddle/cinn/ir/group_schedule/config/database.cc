@@ -17,6 +17,34 @@
 namespace cinn {
 namespace ir {
 
+bool FileTileConfigDatabase::Tofile() {
+  // To proto
+  // ToJson
+  // CommitJson
+}
+
+std::string FileTileConfigDatabase::IterSpaceToDir(
+    common::Target target, IterSpaceType& iter_space_type) {
+  std::string dirname = "";
+  std::string filename = "";
+  for (auto i : iter_space_type) {
+    dirname += i.first;
+    dirname += "_";
+    filename += i.first + i.second;
+    filename += "_";
+  }
+  dirname = dirname.substr(0, dirname.size() - 1);
+  filename = filename.substr(0, filename.size() - 1);
+
+  return dirname + "/" + filename + ".json";
+}
+
+bool FileTileConfigDatabase::ParseFromFile() {
+  // ReadFromJsonFile;
+  JsonStringToMessage();
+  ParseFromProtoMessage();
+}
+
 void NaiveTileConfigDatabase::AddConfig(
     const common::Target& target,
     const IterSpaceType& iter_space_type,

@@ -28,6 +28,8 @@ using ScheduleConfigMap =
 using TileConfigMap =
     std::unordered_map<BucketInfo, ScheduleConfig::TileConfig, BucketInfoHash>;
 using IterSpaceType = std::vector<std::pair<std::string, std::string>>;
+using TargetsTileConfigMap =
+    std::map<common::Target, std::map<IterSpaceType, TileConfigMap>>;
 
 class TileConfigDatabase {
  public:
@@ -40,6 +42,18 @@ class TileConfigDatabase {
   virtual TileConfigMap GetConfigs(
       const common::Target& target,
       const IterSpaceType& iter_space_type) const = 0;
+};
+
+class FileTileConfigDatabase {
+ public:
+  bool Tofile();
+  std::string IterSpaceToDir(common::Target target,
+                             const IterSpaceType& iter_space_type);
+  bool ParseFromFile();
+
+ private:
+  std::string dump_path_;
+  TargetsTileConfigMap targets_config_data_;
 };
 
 class NaiveTileConfigDatabase final : public TileConfigDatabase {
