@@ -22,6 +22,8 @@
 
 #include "paddle/cinn/utils/multi_threading.h"
 
+PD_DECLARE_bool(cinn_use_best_tile_config);
+
 #define MKDIR(path) mkdir(path, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH)
 PD_DECLARE_string(cinn_tile_config_filename_label);
 static bool PathExists(const std::string& path) {
@@ -190,16 +192,23 @@ bool comparepriority(group_schedule::config::proto::TileData tile_data1,
 
 TileConfigMap FileTileConfigDatabase::GetConfigs(
     const common::Target& target, const IterSpaceType& iter_space_type) const {
+  VLOG(3) << "enter file tile_config";
   // Step 1: Read from json file and convert json to proto message
   std::string file_path = IterSpaceTypeToDir(target, iter_space_type);
+  VLOG(3) << "before read lines";
   auto json_lines = ReadLinesFromFile(file_path);
+  VLOG(3) << "after read lines";
   size_t line_length = json_lines.size();
 
   std::vector<group_schedule::config::proto::TileData> tile_database(
       line_length);
+  VLOG(3) << "before Parse from json";
+
   JsonStringToMessageOfTileConfig(&tile_database, json_lines);
 
   // Step 2: Parse from proto message
+  VLOG(3) << "before Parse from proto message";
+
   TileConfigMap tile_config_map;
   // order tile_database according to priority
   std::sort(tile_database.begin(), tile_database.end(), comparepriority);
@@ -222,6 +231,8 @@ TileConfigMap FileTileConfigDatabase::GetConfigs(
         piece_tileconfig.tile_config().spatial_inner_num();
     tconfig.warp_num = piece_tileconfig.tile_config().warp_num();
     tile_config_map[bucket_info] = tconfig;
+    VLOG(3) << " config one: " << tconfig.warp_num << " "
+            << tconfig.spatial_inner_num << " " << tconfig.tree_reduce_num;
     // TODO(XiaZichao): Add function to cut one lattice into smaller ones
   }
   // TODO(XiaZichao): update json file using top view of tileconfigMap
@@ -242,5 +253,53 @@ void FileTileConfigDatabase::AddConfig(const common::Target& target,
         ::common::errors::Unavailable("Can't add tile config to json file."));
   }
 }
+
+ScheduleConfigManager& ScheduleConfigManager::Instance() {
+  static ScheduleConfigManager schedule_config_manager;
+  return schedule_config_manager;
+}
+
+void ScheduleConfigManager::AddConfigDatabase(
+    const std::string& id,
+    const std::shared_ptr<TileConfigDatabase>& database) {
+  tile_config_data_[id] = database;
+}
+
+ScheduleConfigMap ScheduleConfigManager::ExtractConfigs(
+    const common::Target& target,
+    const std::shared_ptr<hlir::framework::pir::GroupInfo>& group_info) const {
+  if (FLAGS_cinn_use_best_tile_config == false) {
+    VLOG(3) << "policy " << policy_ << " count "
+            << tile_config_data_.count(policy_);
+    // if (policy_ == "default" || tile_config_data_.count(policy_) == 0) {
+    return BuildScheduleConfig(group_info, target);
+    // } else {
+    // PADDLE_THROW(::common::errors::InvalidArgument(" Not support the null
+    // config now"));
+    // }
+  } else {
+    std::shared_ptr<ScheduleConfig::BaseInfo> base_info =
+        InitBasicInfo(group_info);
+    IterSpaceType iter_space_type = [&] {
+      std::string sp_state =
+          base_info->has_dynamic_spatial ? "dynamic" : "static";
+      std::string rd_state =
+          base_info->has_dynamic_reduce ? "dynamic" : "static";
+      return IterSpaceType{{"S", sp_state}, {"R", rd_state}};
+    }();
+
+    // TileConfigMap tile_config_map =
+    //     tile_config_data_.at(policy_)->GetConfigs(target, iter_space_type);
+    cinn::ir::FileTileConfigDatabase file_database;
+    TileConfigMap tile_config_map =
+        file_database.GetConfigs(target, iter_space_type);
+    return CombineBaseInfoAndConfig(tile_config_map, base_info);
+  }
+}
+
+void ScheduleConfigManager::SetPolicy(const std::string& policy) {
+  policy_ = policy;
+}
+
 }  // namespace ir
 }  // namespace cinn
