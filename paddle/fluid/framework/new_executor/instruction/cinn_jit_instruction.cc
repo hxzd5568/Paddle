@@ -67,8 +67,21 @@ class CinnJitInstruction::FnPtrImpl {
     }
 
     // 3. Launch host kernel
-    ((lower_func_ptr_g)cinn_kernel_info_.fn_ptr)(
-        static_cast<void*>(func_args_.data()), func_args_.size(), stream);
+    if (FLAGS_cinn_enable_config_search) {
+      VLOG(3) << "enter searching config branch";
+      ::common::PerformanceStatistician& ps =
+          ::common::PerformanceStatistician::Instance();
+      auto data_p = static_cast<void*>(func_args_.data());
+      cudaDeviceSynchronize();
+      ps.Start(FLAGS_cinn_kernel_execution_label);
+      ((lower_func_ptr_g)cinn_kernel_info_.fn_ptr)(
+          static_cast<void*>(func_args_.data()), func_args_.size(), stream);
+      cudaDeviceSynchronize();
+      ps.End(FLAGS_cinn_kernel_execution_label);
+    } else {
+      ((lower_func_ptr_g)cinn_kernel_info_.fn_ptr)(
+          static_cast<void*>(func_args_.data()), func_args_.size(), stream);
+    }
     VLOG(6) << "End Run: " << cinn_kernel_info_.fn_name;
   }
 
@@ -195,16 +208,7 @@ void CinnJitInstruction::Run() {
   }
 
   // 2. exexute kernel
-  if (FLAGS_cinn_enable_config_search) {
-    ::common::PerformanceStatistician& ps =
-        ::common::PerformanceStatistician::Instance();
-    ps.Start(FLAGS_cinn_kernel_execution_label);
-    fn_ptr_impl_->Run(tensor_args_, static_cast<void*>(stream));
-    cudaDeviceSynchronize();
-    ps.End(FLAGS_cinn_kernel_execution_label);
-  } else {
-    fn_ptr_impl_->Run(tensor_args_, static_cast<void*>(stream));
-  }
+  fn_ptr_impl_->Run(tensor_args_, static_cast<void*>(stream));
 #else
   VLOG(0) << "Not Supported: cinn jit instruction currently does not "
              "support non-CUDA kernel";
