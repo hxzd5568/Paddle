@@ -1,0 +1,21 @@
+[CINN] Fix timer bug for default branch,https://github.com/PaddlePaddle/Paddle/pull/65524
+[CINN] fix comparison bug in file_database.cc,https://github.com/PaddlePaddle/Paddle/pull/65514
+[CINN] update flags of measuring kernel time,https://github.com/PaddlePaddle/Paddle/pull/65458
+[CINN] Change location and file name of tile config,https://github.com/PaddlePaddle/Paddle/pull/65374
+[CINN] update policy for reading tile config,https://github.com/PaddlePaddle/Paddle/pull/65333
+[CINN] Add logic for getting the best tile config,https://github.com/PaddlePaddle/Paddle/pull/65010
+[CINN] Update bucket info component,https://github.com/PaddlePaddle/Paddle/pull/64711
+[CINN] Fix include bug in tile config database,https://github.com/PaddlePaddle/Paddle/pull/64702
+[CINN] Add TileConfig Database for Schedule,https://github.com/PaddlePaddle/Paddle/pull/64588
+[CINN] fix bug: enhance condition check in fuse schedule,https://github.com/PaddlePaddle/Paddle/pull/64518
+[CINN] update check expr in arange,https://github.com/PaddlePaddle/Paddle/pull/64222
+[CINN] fix bug: remove redundant conversion in select,https://github.com/PaddlePaddle/Paddle/pull/64217
+[CINN] add symbolic arange,https://github.com/PaddlePaddle/Paddle/pull/64068
+[CINN] Add symbolic select,https://github.com/PaddlePaddle/Paddle/pull/63971
+[FIX] dim error in reducesum,https://github.com/PaddlePaddle/Paddle/pull/63878
+Add symbolic reciprocal,https://github.com/PaddlePaddle/Paddle/pull/63687
+[CINN] Add symbolic reverse op,https://github.com/PaddlePaddle/Paddle/pull/63654
+[CINN] Add symbolic isclose op,https://github.com/PaddlePaddle/Paddle/pull/63643
+[CINN] Add symbolic isfinite/inf/nan,https://github.com/PaddlePaddle/Paddle/pull/63581
+[CINN] Add dynamic relu6 operator,https://github.com/PaddlePaddle/Paddle/pull/63451
+Pybindnew contributor,https://github.com/PaddlePaddle/Paddle/pull/63180
