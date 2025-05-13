@@ -500,6 +500,19 @@ def get_cinn_config_jsons():
         json_path_list += [json]
     return json_path_list
 
+def get_apy_files():
+    from pathlib import Path
+
+    apy_path = '${PADDLE_BINARY_DIR}/python/paddle/apy/'
+    prefix_len = len(apy_path)
+    p = Path(apy_path)
+    file_list = []
+    for path in p.rglob('*'):
+        if path.is_file():
+            relative_path = str(path)[prefix_len:]
+            file_list.append(relative_path)
+    return file_list
+
 write_version_py(filename='@PADDLE_BINARY_DIR@/python/paddle/version/__init__.py')
 
 def write_cuda_env_config_py(filename='paddle/cuda_env.py'):
@@ -713,7 +726,34 @@ def get_paddle_extra_install_requirements():
 
     return paddle_cuda_requires,paddle_tensorrt_requires
 
+def retain_only_subdirs(root_dir, subdirs_to_keep):
+    keep_paths = [os.path.join(root_dir, d) for d in subdirs_to_keep]
+    for item in os.listdir(root_dir):
+        item_path = os.path.join(root_dir, item)
+        if item_path in keep_paths:
+            continue
+        if os.path.isfile(item_path) or os.path.islink(item_path):
+            os.remove(item_path)
+        elif os.path.isdir(item_path):
+            shutil.rmtree(item_path)
 
+def download_cutlass_src_code(version="v3.7.0"):
+    url = f"https://github.com/NVIDIA/cutlass/archive/refs/tags/{version}.tar.gz"
+    tar_file = f"{version}.tar.gz"
+    dir_path = '${PADDLE_BINARY_DIR}/python/paddle/apy/matmul_pass/matmul'
+    wget_cmd = ["wget", url, '-P', '/work/Paddle/build/python/paddle/apy/matmul_pass/matmul', '--progress=bar:force']
+    result = subprocess.run(wget_cmd, capture_output=True, text=True)
+    assert result.returncode == 0, f"Download cutlass 3.7: Failed: {result.stderr}"
+    extract_cmd = ["tar", "-xzvf", f'{dir_path}/{tar_file}', '-C', dir_path]
+    result = subprocess.run(extract_cmd, capture_output=True, text=True)
+    assert result.returncode == 0, f"Extract files from cutlass tar.gz: Failed: {result.stderr}"
+    extract_cmd = ["rm", "-rf", f'{dir_path}/{tar_file}']
+    result = subprocess.run(extract_cmd, capture_output=True, text=True)
+    assert result.returncode == 0, f"Delete cutlass tar file: Failed: {result.stderr}"
+
+    retain_only_subdirs(f'{dir_path}/cutlass-3.7.0', ['tools', 'include'])
+
+download_cutlass_src_code()
 
 
 packages=['paddle',
@@ -828,7 +868,9 @@ packages=['paddle',
           'paddle.text.datasets',
           'paddle.incubate',
           'paddle.incubate.cc',
+          'paddle.incubate.cc.tools',
           'paddle.incubate.cc.ap',
+          'paddle.apy',
           'paddle.incubate.jit',
           'paddle.incubate.nn',
           'paddle.incubate.nn.functional',
@@ -958,6 +1000,11 @@ shutil.copytree(src_cinn_config_path, whl_cinn_config_path)
 json_path_list = get_cinn_config_jsons()
 for json in json_path_list:
     package_data['paddle.cinn_config'] += [json]
+
+package_data['paddle.apy'] = []
+file_path_list = get_apy_files()
+for file in file_path_list:
+    package_data['paddle.apy'] += [file]
 
 package_dir={
     '': '${PADDLE_BINARY_DIR}/python',
