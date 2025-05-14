@@ -21,7 +21,7 @@ import paddle
 import paddle.incubate.cc as pcc
 import paddle.incubate.cc.typing as pct
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "7"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 os.environ["AP_WORKSPACE_DIR"] = "/tmp/paddle/ap"
 
 
