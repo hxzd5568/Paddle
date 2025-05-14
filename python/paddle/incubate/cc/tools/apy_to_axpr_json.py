@@ -81,7 +81,7 @@ def IsAllowed(file_path, ignore_rules):
 
 
 class PyToAxpr:
-    def __init__(self, ignore_paths=None):
+    def __init__(self, file_path, ignore_paths=None):
         ignore_files = CollectParentIgnoreFile(file_path)
         self.ignore_rules = ReadIgnoreRules(ignore_files)
         if ignore_paths:
@@ -104,4 +104,4 @@ class PyToAxpr:
 
 if __name__ == "__main__":
     for file_path in sys.argv[1:]:
-        PyToAxpr()(file_path)
+        PyToAxpr(file_path)(file_path)
