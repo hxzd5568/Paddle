@@ -73,7 +73,7 @@ def _compile(
 ):
     assert ap_path is not None
     if ap_path != "":
-        paddle.incubate.cc.tools.apy_to_axpr_json.PyToAxpr(ap_path)
+        paddle.incubate.cc.tools.apy_to_axpr_json.PyToAxpr()(ap_path)
     assert not train, "only support inference now"
     os.makedirs(ap_workspace_dir, exist_ok=True)
     build_strategy = paddle.static.BuildStrategy()

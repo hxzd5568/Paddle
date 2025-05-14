@@ -36,17 +36,10 @@ def CollectParentIgnoreFile(start_path):
         if parent_path.split(os.sep)[-1] == APY_ROOT or parent_path == path:
             break
         path = parent_path
+    for root, dirs, files in os.walk(start_path):
+        if '.apy_ignore' in files:
+            apy_ignores.append(os.path.join(root, '.apy_ignore'))
     return apy_ignores
-
-
-def FindCurrentIgnoreFile(root_dir):
-    ignore_files = []
-    for name in os.listdir(root_dir):
-        if name == ".apy_ignore":
-            full_path = os.path.join(root_dir, name)
-            if os.path.isfile(full_path):
-                ignore_files.append(full_path)
-    return ignore_files
 
 
 def ReadIgnoreRules(ignore_paths):
@@ -87,26 +80,28 @@ def IsAllowed(file_path, ignore_rules):
     return result
 
 
-def PyToAxpr(file_path, ignore_rules=[]):
-    global FLAGS_FIRST_CYCLE
-    if FLAGS_FIRST_CYCLE:
-        FLAGS_FIRST_CYCLE = False
-        parent_ignore_files = CollectParentIgnoreFile(file_path)
-        ignore_rules += ReadIgnoreRules(parent_ignore_files)
-    if not IsAllowed(file_path, ignore_rules):
-        pass
-    elif os.path.isdir(file_path):
-        ignore_files = FindCurrentIgnoreFile(file_path)
-        ignore_rules += ReadIgnoreRules(ignore_files)
-        for file in glob.glob(f"{file_path}{os.sep}*"):
-            PyToAxpr(file, ignore_rules)
-    else:
-        print(f"apy_to_axpr_json {file_path}")
-        tree = ast.parse(open(file_path).read())
-        parser = PyToAnfParser()
-        parser(tree).ConvertToAnfExpr().DumpToFileAsJson(f"{file_path}.json")
+class PyToAxpr:
+    def __init__(self, ignore_paths=None):
+        ignore_files = CollectParentIgnoreFile(file_path)
+        self.ignore_rules = ReadIgnoreRules(ignore_files)
+        if ignore_paths:
+            self.ignore_rules += [(name, False, "") for name in ignore_paths]
+
+    def __call__(self, file_path):
+        if not IsAllowed(file_path, self.ignore_rules):
+            pass
+        elif os.path.isdir(file_path):
+            for file in glob.glob(f"{file_path}{os.sep}*"):
+                self.__call__(file)
+        else:
+            print(f"apy_to_axpr_json {file_path}")
+            tree = ast.parse(open(file_path).read())
+            parser = PyToAnfParser()
+            parser(tree).ConvertToAnfExpr().DumpToFileAsJson(
+                f"{file_path}.json"
+            )
 
 
 if __name__ == "__main__":
     for file_path in sys.argv[1:]:
-        PyToAxpr(file_path)
+        PyToAxpr()(file_path)
