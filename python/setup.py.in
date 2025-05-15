@@ -737,20 +737,20 @@ def retain_only_subdirs(root_dir, subdirs_to_keep):
         elif os.path.isdir(item_path):
             shutil.rmtree(item_path)
 
-def download_cutlass_src_code(version="v3.7.0"):
-    url = f"https://github.com/NVIDIA/cutlass/archive/refs/tags/{version}.tar.gz"
-    tar_file = f"{version}.tar.gz"
+def download_cutlass_src_code():
+    url = "https://paddle-ci.gz.bcebos.com/cutlass-3.7.0.tar.gz"
+    tar_file = "cutlass-3.7.0.tar.gz"
     dir_path = '${PADDLE_BINARY_DIR}/python/paddle/apy/matmul_pass/matmul'
-    wget_cmd = ["wget", url, '-P', '/work/Paddle/build/python/paddle/apy/matmul_pass/matmul', '--progress=bar:force']
-    result = subprocess.run(wget_cmd, capture_output=True, text=True)
-    assert result.returncode == 0, f"Download cutlass 3.7: Failed: {result.stderr}"
-    extract_cmd = ["tar", "-xzvf", f'{dir_path}/{tar_file}', '-C', dir_path]
-    result = subprocess.run(extract_cmd, capture_output=True, text=True)
-    assert result.returncode == 0, f"Extract files from cutlass tar.gz: Failed: {result.stderr}"
-    extract_cmd = ["rm", "-rf", f'{dir_path}/{tar_file}']
-    result = subprocess.run(extract_cmd, capture_output=True, text=True)
-    assert result.returncode == 0, f"Delete cutlass tar file: Failed: {result.stderr}"
-
+    if not os.path.exists(f'{dir_path}/cutlass-3.7.0'):
+        wget_cmd = ["wget", url, '-P', '/work/Paddle/build/python/paddle/apy/matmul_pass/matmul', '--progress=bar:force']
+        result = subprocess.run(wget_cmd, capture_output=True, text=True)
+        assert result.returncode == 0, f"Download cutlass 3.7: Failed: {result.stderr}"
+        extract_cmd = ["tar", "-xzvf", f'{dir_path}/{tar_file}', '-C', dir_path]
+        result = subprocess.run(extract_cmd, capture_output=True, text=True)
+        assert result.returncode == 0, f"Extract files from cutlass tar.gz: Failed: {result.stderr}"
+        delete_cmd = ["rm", "-rf", f'{dir_path}/{tar_file}']
+        result = subprocess.run(delete_cmd, capture_output=True, text=True)
+        assert result.returncode == 0, f"Delete cutlass tar file: Failed: {result.stderr}"
     retain_only_subdirs(f'{dir_path}/cutlass-3.7.0', ['tools', 'include'])
 
 download_cutlass_src_code()
@@ -868,8 +868,8 @@ packages=['paddle',
           'paddle.text.datasets',
           'paddle.incubate',
           'paddle.incubate.cc',
-          'paddle.incubate.cc.tools',
           'paddle.incubate.cc.ap',
+          'paddle.incubate.cc.tools',
           'paddle.apy',
           'paddle.incubate.jit',
           'paddle.incubate.nn',
