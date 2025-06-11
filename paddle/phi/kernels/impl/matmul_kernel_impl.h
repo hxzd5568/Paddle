@@ -43,6 +43,28 @@ COMMON_DECLARE_bool(cuda_core_int8_gemm);
 
 namespace phi {
 
+static void test_xzc_cuda(std::string& str) {
+  std::cout << str << " begin" << std::endl;
+    // 1. wait all kernel finish
+  PADDLE_ENFORCE_GPU_SUCCESS(cudaDeviceSynchronize());
+
+  // 2. get error state
+  PADDLE_ENFORCE_GPU_SUCCESS(cudaGetLastError());
+
+  // 3. check if cuda 700
+  size_t bytes = 256;
+  char* cuda_mem;
+  char* cpu_mem = new char[bytes + 1];
+
+  cudaMalloc(&cuda_mem, bytes + 1);
+  cudaMemset(cuda_mem, 0, bytes + 1);
+  cudaMemcpyAsync(cpu_mem, cuda_mem, bytes, cudaMemcpyDeviceToHost);
+
+  cudaFree(cuda_mem);
+  delete[] cpu_mem;
+  std::cout << str << " end" << std::endl;
+}
+
 static void GetBroadcastFromDims(const int x_ndim,
                                  const std::int64_t* x_dims,
                                  const int y_ndim,
@@ -344,6 +366,11 @@ void MatMulFunctionImplWithBlas(
   std::vector<std::int64_t> x_broadcast_dims(ndim);
   std::vector<std::int64_t> y_broadcast_dims(ndim);
   std::vector<std::int64_t> out_broadcast_dims(ndim);
+  
+  std::string str_err;
+  str_err = "before  GetBroadcastFromDims: ";
+  test_xzc_cuda(str_err);
+  LOG(ERROR) << str_err << std::endl;
 
   GetBroadcastFromDims(x_ndim - 2,
                        x_dims.data(),
@@ -355,9 +382,16 @@ void MatMulFunctionImplWithBlas(
   out_broadcast_dims[ndim - 2] = M;
   out_broadcast_dims[ndim - 1] = N;
 
-  Out->ResizeAndAllocate(common::make_ddim(out_broadcast_dims));
-  dev_ctx.template Alloc<T>(Out);
+  str_err = "after GetBroadcastFromDims: ";
+  test_xzc_cuda(str_err);
+  LOG(ERROR) << str_err << std::endl;
 
+  Out->ResizeAndAllocate(common::make_ddim(out_broadcast_dims));
+
+  str_err = "after ResizeAndAllocate: ";
+  test_xzc_cuda(str_err);
+  LOG(ERROR) << str_err << std::endl;
+  dev_ctx.template Alloc<T>(Out);
   const int batch_dim = ndim - 2;
   // broadcast message
   const bool is_broadcast_dims =
@@ -380,9 +414,17 @@ void MatMulFunctionImplWithBlas(
                       out_broadcast_dims.cbegin() + batch_dim,
                       1LL,
                       std::multiplies<std::int64_t>());
+  str_err = "after broadcastn accumulate: ";
+  test_xzc_cuda(str_err);
+  LOG(ERROR) << str_err << std::endl;
+  VLOG(0) << "x_batch_size: " << x_batch_size << std::endl;
+  VLOG(0) << "y_batch_size: " << y_batch_size << std::endl;
   if (out_batch_size == 0) return;
   if (x_batch_size == 1 && y_batch_size == 1) {
-    VLOG(3) << "MatMul's case 8";
+    VLOG(0) << "MatMul's case 8";
+    str_err = "before blas.gemm: ";
+    test_xzc_cuda(str_err);
+    LOG(ERROR) << str_err << std::endl;
     blas.GEMM(trans_x ? CblasTrans : CblasNoTrans,
               trans_y ? CblasTrans : CblasNoTrans,
               M,
@@ -393,6 +435,9 @@ void MatMulFunctionImplWithBlas(
               y_data,
               static_cast<T>(flag),
               dev_ctx.template Alloc<T>(Out));
+    str_err = "after blas.gemm: ";
+    test_xzc_cuda(str_err);
+    LOG(ERROR) << str_err << std::endl;
   } else if (x_batch_size == 1) {
     if (M == 1 && trans_y) {
       VLOG(3) << "MatMul's case 9";
@@ -451,6 +496,9 @@ void MatMulFunctionImplWithBlas(
     }
   } else if (!is_broadcast_dims) {
     VLOG(3) << "MatMul's case 13";
+    str_err = "before blas.BatchedGEMM: ";
+    test_xzc_cuda(str_err);
+    LOG(ERROR) << str_err << std::endl;
     blas.BatchedGEMM(trans_x ? CblasTrans : CblasNoTrans,
                      trans_y ? CblasTrans : CblasNoTrans,
                      M,
@@ -464,6 +512,9 @@ void MatMulFunctionImplWithBlas(
                      out_batch_size,
                      M * K,
                      K * N);
+    str_err = "after blas.BatchedGEMM: ";
+    // test_xzc_cuda(str_err);
+    // LOG(ERROR) << str_err << std::endl;
   } else {
     // in the case, can't use stridedgemm
     std::vector<const T*> x_ptr(out_batch_size);
@@ -1989,8 +2040,14 @@ MatmulJudgeDtypeKernel(const Context& ctx,
                        DenseTensor* out,
                        bool transpose_x,
                        bool transpose_y) {
+  std::string str_err = "enter matmuljudge float: ";
+  test_xzc_cuda(str_err);
+  LOG(ERROR) << str_err << std::endl;
   DispatchMatmulKernel<Context, T>(
       ctx, x, y, x_dims, y_dims, out, transpose_x, transpose_y);
+  str_err = "after DispatchMatmulKernel";
+  // test_xzc_cuda(str_err);
+  // LOG(ERROR) << str_err << std::endl;
 }
 
 template <typename T, typename Context>
@@ -2020,6 +2077,10 @@ void MatmulKernel(const Context& ctx,
     ctx.template Alloc<T>(out);
     return;
   }
+  std::string str_err;
+  str_err = "enter MatmulKernel: ";
+  test_xzc_cuda(str_err);
+  LOG(ERROR) << str_err << std::endl;
   PADDLE_ENFORCE_GE(
       common::product(x.dims()),
       0,
@@ -2032,8 +2093,14 @@ void MatmulKernel(const Context& ctx,
           "The dims of Input(Y) should be greater than or equal to 0."));
   const std::vector<std::int64_t> x_dims = common::vectorize(x.dims());
   const std::vector<std::int64_t> y_dims = common::vectorize(y.dims());
+  str_err = "before MatmulJudgeDtypeKernel: ";
+  test_xzc_cuda(str_err);
+  LOG(ERROR) << str_err << std::endl;
   MatmulJudgeDtypeKernel<Context, T>(
       ctx, x, y, x_dims, y_dims, out, transpose_x, transpose_y);
+  str_err = "after MatmulJudgeDtypeKernel:  ";
+  // test_xzc_cuda(str_err);
+  // LOG(ERROR) << str_err << std::endl;
 }
 
 template <typename T, typename Context>

@@ -28,6 +28,29 @@ COMMON_DECLARE_bool(enable_cublas_tensor_op_math);
 COMMON_DECLARE_bool(gemm_use_half_precision_compute_type);
 
 namespace phi {
+
+static void test_xzc_cuda(const std::string& str) {
+  std::cout << str << " begin" << std::endl;
+    // 1. wait all kernel finish
+  PADDLE_ENFORCE_GPU_SUCCESS(cudaDeviceSynchronize());
+
+  // 2. get error state
+  PADDLE_ENFORCE_GPU_SUCCESS(cudaGetLastError());
+
+  // 3. check if cuda 700
+  size_t bytes = 256;
+  char* cuda_mem;
+  char* cpu_mem = new char[bytes + 1];
+
+  cudaMalloc(&cuda_mem, bytes + 1);
+  cudaMemset(cuda_mem, 0, bytes + 1);
+  cudaMemcpyAsync(cpu_mem, cuda_mem, bytes, cudaMemcpyDeviceToHost);
+
+  cudaFree(cuda_mem);
+  delete[] cpu_mem;
+  std::cout << str << " end" << std::endl;
+}
+
 namespace funcs {
 
 template <typename T>
@@ -1896,6 +1919,7 @@ void Blas<phi::GPUContext>::BatchedGEMM(CBLAS_TRANSPOSE transA,
                                         int64_t strideB) const {
   // Note that cublas follows fortran order, so the order is different from
   // the cblas convention.
+  VLOG(0) << "**** enter BatchedGEMM" << std::endl;
   int lda = (transA == CblasNoTrans) ? K : M;
   int ldb = (transB == CblasNoTrans) ? N : K;
   int ldc = N;
@@ -1904,7 +1928,10 @@ void Blas<phi::GPUContext>::BatchedGEMM(CBLAS_TRANSPOSE transA,
   cublasOperation_t cuTransB =
       (transB == CblasNoTrans) ? CUBLAS_OP_N : CUBLAS_OP_T;
   const int64_t strideC = M * N;
-
+  std::string str_err;
+  str_err = "after  cublasOperation_t: ";
+  test_xzc_cuda(str_err);
+  LOG(ERROR) << str_err << std::endl;
 #if CUDA_VERSION >= 9010
   if ((FLAGS_enable_cublas_tensor_op_math && (std::is_same<T, float>::value)) ||
       std::is_same<T, phi::dtype::float16>::value) {
@@ -1940,7 +1967,10 @@ void Blas<phi::GPUContext>::BatchedGEMM(CBLAS_TRANSPOSE transA,
       compute_type = CUDA_R_16F;
 #endif
     }
-
+    str_err = "before TensorCoreCublasCallIfAvailable: ";
+    test_xzc_cuda(str_err);
+    LOG(ERROR) << str_err << std::endl;
+    LOG(ERROR) << "n,m,k,b is : " << N <<" " << M << " " <<  K << " " << batchCount << std::endl;
     context_.TensorCoreCublasCallIfAvailable([&](cublasHandle_t handle) {
       PADDLE_ENFORCE_GPU_SUCCESS(
           phi::dynload::cublasGemmStridedBatchedEx(handle,
@@ -1967,8 +1997,14 @@ void Blas<phi::GPUContext>::BatchedGEMM(CBLAS_TRANSPOSE transA,
                                                    compute_type,
                                                    algo));
     });
+    str_err = "after TensorCoreCublasCallIfAvailable: ";
+    // test_xzc_cuda(str_err);
+    // LOG(ERROR) << str_err << std::endl;
   } else {
 #endif  // CUDA_VERSION >= 9010
+    str_err = "before CublasCall: ";
+    test_xzc_cuda(str_err);
+    LOG(ERROR) << str_err << std::endl;
 
     context_.CublasCall([&](cublasHandle_t handle) {
       CUBlas<T>::GEMM_STRIDED_BATCH(handle,
@@ -1990,6 +2026,10 @@ void Blas<phi::GPUContext>::BatchedGEMM(CBLAS_TRANSPOSE transA,
                                     strideC,
                                     batchCount);
     });
+  
+    str_err = "after  CublasCall: ";
+    test_xzc_cuda(str_err);
+    LOG(ERROR) << str_err << std::endl;
 
 #if CUDA_VERSION >= 9010
   }
