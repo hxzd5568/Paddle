@@ -39,6 +39,7 @@ template <>
 struct CUBlas<float> {
   template <typename... ARGS>
   static void GEMM(ARGS... args) {
+    VLOG(0) << "enter gemm cublassgemm";
     PADDLE_ENFORCE_GPU_SUCCESS(phi::dynload::cublasSgemm(args...));
   }
 
@@ -467,6 +468,8 @@ struct CUBlas<phi::dtype::float16> {
                       cudaDataType_t Ctype,
                       int ldc,
                       cudaDataType_t computeType) {
+    VLOG(0) << "M N K lda ldb ldc are: " << m << " " << n << " " << k << " "
+            << lda << " " << ldb << " " << ldc << std::endl;
 #if CUDA_VERSION >= 8000
     cublasGemmAlgo_t algo = CUBLAS_GEMM_DFALT;
 #if CUDA_VERSION >= 9000
@@ -474,10 +477,9 @@ struct CUBlas<phi::dtype::float16> {
     if (use_tensor_op_math) {
       algo = CUBLAS_GEMM_DFALT_TENSOR_OP;
     }
-    VLOG(5) << "use_tensor_op_math: "
+    VLOG(5) << "use_tensor_op_math *** : "
             << (use_tensor_op_math ? "True" : "False");
 #endif  // CUDA_VERSION >= 9000
-
     dev_ctx->TensorCoreCublasCallIfAvailable([&](cublasHandle_t handle) {
       PADDLE_ENFORCE_GPU_SUCCESS(phi::dynload::cublasGemmEx(handle,
                                                             transa,
@@ -2095,6 +2097,9 @@ void Blas<phi::GPUContext>::GEMM(bool transA,
                                  T beta,
                                  T *C,
                                  int ldc) const {
+  VLOG(0) << "enter 2099";
+  VLOG(0) << "M N K lda ldb ldc are: " << M << " " << N << " " << K << " "
+          << lda << " " << ldb << " " << ldc << std::endl;
   // Note that cublas follows fortran order, so the order is different from
   // the cblas convention.
   cublasOperation_t cuTransA = transA ? CUBLAS_OP_T : CUBLAS_OP_N;
@@ -2160,16 +2165,40 @@ inline void Blas<phi::GPUContext>::GEMM(bool transA,
                                         phi::dtype::float16 beta,
                                         phi::dtype::float16 *C,
                                         int ldc) const {
+  VLOG(0) << "enter 2165";
+  VLOG(0) << "M N K lda ldb ldc are: " << M << " " << N << " " << K << " "
+          << lda << " " << ldb << " " << ldc << std::endl;
+  VLOG(0) << "alpha beta: " << alpha << " " << beta << " " << std::endl;
+
   // Note that cublas follows fortran order, so the order is different from
   // the cblas convention.
   cublasOperation_t cuTransA = transA ? CUBLAS_OP_T : CUBLAS_OP_N;
   cublasOperation_t cuTransB = transB ? CUBLAS_OP_T : CUBLAS_OP_N;
 
+<<<<<<< HEAD
+=======
+  // context_.CublasCall([&](cublasHandle_t handle) {
+  //   CUBlas<phi::dtype::float16>::GEMM(handle,
+  //                                     cuTransB,
+  //                                     cuTransA,
+  //                                     N,
+  //                                     M,
+  //                                     K,
+  //                                     &alpha,
+  //                                     B,
+  //                                     ldb,
+  //                                     A,
+  //                                     lda,
+  //                                     &beta,
+  //                                     C,
+  //                                     ldc);
+  // });
+
   cublasGemmAlgo_t algo = CUBLAS_GEMM_DEFAULT;
   float h_alpha = static_cast<float>(alpha);
   float h_beta = static_cast<float>(beta);
   bool use_tensor_op_math = context_.tensor_core_available();
-  VLOG(5) << "use_tensor_op_math is : " << use_tensor_op_math;
+  VLOG(0) << "use_tensor_op_math is : " << use_tensor_op_math;
   if (use_tensor_op_math) {
     algo = CUBLAS_GEMM_DFALT_TENSOR_OP;
   }
@@ -2211,6 +2240,10 @@ inline void Blas<phi::GPUContext>::GEMM(bool transA,
                                         phi::dtype::bfloat16 beta,
                                         phi::dtype::bfloat16 *C,
                                         int ldc) const {
+  VLOG(0) << "enter 2205";
+  VLOG(0) << "M N K lda ldb ldc are: " << M << " " << N << " " << K << " "
+          << lda << " " << ldb << " " << ldc << std::endl;
+
 #if CUDA_VERSION >= 11000
   // Note that cublas follows fortran order, so the order is different from
   // the cblas convention.
