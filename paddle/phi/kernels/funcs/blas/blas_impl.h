@@ -765,6 +765,7 @@ template <>
 struct CBlas<float> {
   template <typename... ARGS>
   static void GEMM(ARGS... args) {
+    std::cout << "come in float cblas";
     cblas_sgemm(args...);
   }
 
@@ -1063,6 +1064,7 @@ void Blas<phi::CPUContext>::GEMM(CBLAS_TRANSPOSE transA,
                                  const T *B,
                                  T beta,
                                  T *C) const {
+                              std::cout << "come in blas gemm t";
   if (M > INT_MAX_VALUE || N > INT_MAX_VALUE || K > INT_MAX_VALUE) {
     PADDLE_THROW(
         common::errors::Unimplemented("GEMM not supported for large tensor "
@@ -1194,6 +1196,7 @@ void Blas<DeviceContext>::MatMul(const phi::DenseTensor &mat_a,
                                  T alpha,
                                  phi::DenseTensor *mat_out,
                                  T beta) const {
+  std::cout << "come in blas matmul t";
   const auto &dim_a = mat_a.dims();
   const auto &dim_b = mat_b.dims();
   const auto &dim_out = mat_out->dims();

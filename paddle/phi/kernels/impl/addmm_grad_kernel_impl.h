@@ -34,7 +34,7 @@ struct CopyOrScaleFunctor {
       : scale_(scale), x_(x), output_(output), numel_(numel) {}
 
   HOSTDEVICE void operator()(int64_t idx) const {
-    using MPType = typename phi::dtype::MPTypeTrait<T>::Type;
+    using MPType = typename phi::dtype::MPTypeTrait<T>::Type; // float16->float
     const MPType mp_scale = static_cast<MPType>(scale_);
     const MPType mp_x = static_cast<MPType>(x_[idx]);
     output_[idx] = static_cast<T>(mp_scale * mp_x);
@@ -201,6 +201,7 @@ void AddmmGradKernel(const Context& dev_ctx,
     dev_ctx.template Alloc<T>(x_grad);
     total_elems = x.dims()[0] * x.dims()[1];
     // x_grad = out_grad * y'. x_grad: M x K, out_grad : M x N, y : K x N
+    VLOG(0) << "before coming in blas matmul t";
     blas.MatMul(out_grad, false, y, true, x_grad);
     if (!is_float16_or_bfloat16) {
       mt_blas.SCAL(total_elems, alpha, x_grad->data<MPType>());

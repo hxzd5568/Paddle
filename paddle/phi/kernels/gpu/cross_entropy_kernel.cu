@@ -714,6 +714,7 @@ static void SoftmaxWithCrossEntropySoftLabel(const GPUContext& dev_ctx,
                                              int N,
                                              int dim,
                                              int D) {
+  VLOG(0) << "N, dim, D is: " << N <<" " << dim << " " << D;
   constexpr int kMaxBlockDim = 512;
   int64_t block_dim = dim >= kMaxBlockDim
                           ? kMaxBlockDim
@@ -795,6 +796,7 @@ static void SoftmaxWithCrossEntropySoftLabel(const GPUContext& dev_ctx,
 
     int kBatchPerBlock = 1;
     int blocks = (N * D + kBatchPerBlock - 1) / kBatchPerBlock;
+    VLOG(0) << "blocks is : " <<blocks; 
     dim3 threads(kThreadPerBlock / kBatchPerBlock, kBatchPerBlock, 1);
 
     CrossEntropySoftLabel<T, T, true><<<blocks, threads, 0, stream>>>(

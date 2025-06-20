@@ -28,8 +28,9 @@ void MeanKernel(const Context& dev_ctx,
                 DenseTensor* out) {
   bool valid_arg = x.dtype() == DataType::FLOAT16 || x.dtype() == DataType::FLOAT32 ||
                     x.dtype() == DataType::FLOAT64 || x.dtype() == DataType::COMPLEX64 ||
-                    x.dtype() == DataType::COMPLEX128;
-  PADDLE_ENFORCE(valid_arg,phi::errors::InvalidArgument(
+                    x.dtype() == DataType::COMPLEX128 || x.dtype() == DataType::BFLOAT16 || x.dtype() == DataType::INT64;
+  PADDLE_ENFORCE(valid_arg, 
+      phi::errors::InvalidArgument(
       "The DataType of mean Op must be either a floating point or complex dtype. But got: %s", DataTypeToString(x.dtype())));
   bool reduce_all = recompute_reduce_all(x, dims);
   MeanRawKernel<T>(dev_ctx, x, dims, keep_dim, reduce_all, out);

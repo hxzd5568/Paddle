@@ -105,7 +105,10 @@ void AddmmKernel(const Context& dev_ctx,
   Array2 bcast_dims;
   bcast_dims[0] = x_dims[0] / input_dims[0];
   bcast_dims[1] = y_dims[1] / input_dims[1];
-  VLOG(3) << "bcast_dims=[" << bcast_dims[0] << "," << bcast_dims[1] << "]";
+  VLOG(0) << "bcast_dims=[" << bcast_dims[0] << "," << bcast_dims[1] << "]";
+  VLOG(0) << "M N K lda ldb ldc are: " << x_dims[0]
+           << " " << y_dims[1] << " " << x_dims[1] << " " << x_dims[1] << " " <<  y_dims[1] <<" " << y_dims[1] << std::endl;
+
   // broadcast using eigen
   const DenseTensor& const_ref_input = input_2d;
   auto eigen_input = PhiEigenTensor<T, 2>::From(const_ref_input);
