@@ -1316,7 +1316,8 @@ void CrossEntropyWithSoftmaxCUDAKernel(const GPUContext& dev_ctx,
       auto* logits_data = softmax->data<T>();
       auto* labels_data = labels.data<LabelT>();
       int threads = 128;
-      int blocks = (n * d / axis_dim + threads - 1) / threads;
+      int blocks =
+          (static_cast<int64_t>(n) * d / axis_dim + threads - 1) / threads;
       CrossEntropyHardLabel<T, LabelT>
           <<<blocks, threads, 0, dev_ctx.stream()>>>(loss_data,
                                                      logits_data,
