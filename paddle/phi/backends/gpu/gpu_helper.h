@@ -21,6 +21,6 @@
 #include "paddle/phi/backends/gpu/cuda/cuda_helper.h"
 #endif
 
-#define CUDA_KERNEL_LOOP(i, num) CUDA_KERNEL_LOOP_TYPE(i, num, int)
+#define CUDA_KERNEL_LOOP(i, num) CUDA_KERNEL_LOOP_TYPE(i, num, int64_t)
 
 #endif
