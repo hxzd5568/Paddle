@@ -39,6 +39,28 @@ namespace cub = hipcub;
 
 namespace phi {
 
+static void test_xzc_cuda(const std::string& str) {
+  std::cout << str << " begin" << std::endl;
+  // 1. wait all kernel finish
+  PADDLE_ENFORCE_GPU_SUCCESS(cudaDeviceSynchronize());
+
+  // 2. get error state
+  PADDLE_ENFORCE_GPU_SUCCESS(cudaGetLastError());
+
+  // 3. check if cuda 700
+  size_t bytes = 256;
+  char* cuda_mem;
+  char* cpu_mem = new char[bytes + 1];
+
+  cudaMalloc(&cuda_mem, bytes + 1);
+  cudaMemset(cuda_mem, 0, bytes + 1);
+  cudaMemcpyAsync(cpu_mem, cuda_mem, bytes, cudaMemcpyDeviceToHost);
+
+  cudaFree(cuda_mem);
+  delete[] cpu_mem;
+  std::cout << str << " end" << std::endl;
+}
+
 #define ALIGN_BYTES 16
 
 enum class SoftmaxMode { kSoftmax, kLogSoftmax, kCrossEntropy };
@@ -741,7 +763,7 @@ static void SoftmaxWithCrossEntropySoftLabel(const GPUContext& dev_ctx,
     VLOG(0) << "kWarpSize, warps_per_block, 1: " << kWarpSize << " "
             << warps_per_block;
     dim3 threads(kWarpSize, warps_per_block, 1);
-    test_xzc_cuda("before forward");
+    test_xzc_cuda("766");
     SwitchWarpSoftmaxForwardSoftLabel<T>(blocks,
                                          threads,
                                          stream,
@@ -754,7 +776,7 @@ static void SoftmaxWithCrossEntropySoftLabel(const GPUContext& dev_ctx,
                                          dim,
                                          kDimLog2);
 
-    test_xzc_cuda("after forward");
+    test_xzc_cuda("779");
   } else {
     ScopedTensorDescriptor desc;
     std::vector<int> tensor_dims = {N, dim, D, 1};
@@ -1167,7 +1189,6 @@ static void SoftmaxWithCrossEntropyHardLabel(const GPUContext& dev_ctx,
   auto* softmax_data = dev_ctx.template Alloc<T>(softmax);
   auto stream = dev_ctx.stream();
   constexpr int max_dim = 320;
-  test_xzc_cuda("1193");
   if (D == 1) {
     if (dim <= max_dim) {  // small size
       const SoftmaxMode mode = SoftmaxMode::kCrossEntropy;
