@@ -192,7 +192,7 @@ void CrossEntropyWithSoftmaxGradGPUKernel(const GPUContext& dev_ctx,
       HardLabelCrossEntropyGradientKernel<T, LabelT>
           <<<grid, block, 0, stream>>>(
               logit_grad_data, label_data, n, d, remain, ignore_index);
-      int num = n * d;
+      int64_t num = n * d;
       grid = (num + block - 1) / block;
       ScaleCrossEntropyGradient<T, LabelT>
           <<<grid, block, 0, stream>>>(logit_grad_data,

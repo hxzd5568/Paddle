@@ -848,7 +848,9 @@ __global__ void WarpSoftmaxForward(T* loss,
       (kIterations >= kVSize) ? (kIterations / kVSize) : 1;
   constexpr int kBatchSize = (kDimCeil <= 128) ? 2 : 1;
 
-  int first_batch = (blockDim.y * blockIdx.x + threadIdx.y) * kBatchSize;
+  int64_t first_batch =
+      (static_cast<int64_t>(blockDim.y) * blockIdx.x + threadIdx.y) *
+      kBatchSize;
 
   // max index to read
   int idx_max_v[kBatchSize];
